@@ -1,22 +1,25 @@
 import os
 from flask import Flask, request
-import telegram
+from telegram import Update
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 app = Flask(__name__)
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-bot = telegram.Bot(token=BOT_TOKEN)
+application = Application.builder().token(BOT_TOKEN).build()
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    await update.message.reply_text(f"Echo: {text}")
+
+application.add_handler(MessageHandler(filters.TEXT, handle_message))
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
+    import asyncio
     data = request.get_json()
-    update = telegram.Update.de_json(data, bot)
-    
-    if update.message and update.message.text:
-        chat_id = update.message.chat.id
-        text = update.message.text
-        bot.send_message(chat_id=chat_id, text=f"Echo: {text}")
-    
+    update = Update.de_json(data, application.bot)
+    asyncio.run(application.process_update(update))
     return "ok", 200
 
 @app.route("/")
